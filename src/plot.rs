@@ -12,9 +12,10 @@ use crate::{
     },
 };
 use chrono::{DateTime, Timelike};
-use egui::{Color32, Response, RichText};
+use egui::{Color32, Pos2, Response, RichText};
 use egui_plot::{
-    AxisHints, GridMark, HPlacement, Legend, Line, Plot, PlotPoint, PlotPoints, Text, VPlacement,
+    AxisHints, GridMark, HPlacement, Legend, Line, Plot, PlotItem, PlotPoint, PlotPoints, Points,
+    Text, VPlacement,
 };
 use play_state::PlayState;
 
@@ -43,6 +44,9 @@ pub struct LogPlot {
     line_width: f32,
     axis_config: AxisConfig,
     play_state: PlayState,
+    first_click: Option<[f64; 2]>,
+    second_click: Option<[f64; 2]>,
+    difference: Option<[f64; 2]>,
 }
 
 impl Default for LogPlot {
@@ -52,6 +56,9 @@ impl Default for LogPlot {
             line_width: 1.0,
             axis_config: Default::default(),
             play_state: PlayState::default(),
+            first_click: None,
+            second_click: None,
+            difference: None,
         }
     }
 }
@@ -145,6 +152,9 @@ impl LogPlot {
             line_width,
             axis_config: _,
             play_state,
+            first_click,
+            second_click,
+            difference,
         } = self;
 
         let mut playback_button_event = None;
@@ -165,7 +175,7 @@ impl LogPlot {
             ui.horizontal_centered(|ui| {
                 ui.label("| ");
                 // Reset button
-                let reset_text = RichText::new(egui_phosphor::regular::REWIND);
+                let reset_text = RichText::new(egui_phosphor::regular::SKIP_BACK);
                 if ui.button(reset_text).clicked() {
                     playback_button_event = Some(PlayBackButtonEvent::Reset);
                 }
@@ -181,7 +191,9 @@ impl LogPlot {
                 ui.label(RichText::new(play_state.formatted_time()));
                 ui.label(" |");
             });
-
+            if let Some([dx, dy]) = difference {
+                ui.label(format!("Difference - X: {:.2}, Y: {:.2}", dx, dy));
+            }
             ui.end_row();
         });
         if let Some(e) = playback_button_event {
@@ -279,6 +291,49 @@ impl LogPlot {
                         bounds.translate_x(-bounds.min()[0]);
                         plot_ui.set_plot_bounds(bounds);
                     }
+
+                    if let Some(first) = *first_click {
+                        plot_ui.points(
+                            Points::new(vec![first])
+                                .shape(egui_plot::MarkerShape::Plus)
+                                .color(Color32::DARK_RED)
+                                .radius(8.0)
+                                .name(format!("[{:.2}, {:.3}]", first[0], first[1])),
+                        );
+                    }
+
+                    if let Some(second) = *second_click {
+                        plot_ui.points(
+                            Points::new(vec![second])
+                                .shape(egui_plot::MarkerShape::Plus)
+                                .color(Color32::BLUE)
+                                .radius(8.0)
+                                .name(format!("[{:.2}, {:.3}]", second[0], second[1])),
+                        );
+                    }
+
+                    if plot_ui.response().clicked() {
+                        log::info!("Plot was clicked");
+                        let pos = plot_ui.pointer_coordinate().unwrap();
+                        log::info!("Clicked at: {pos:?}");
+                        let position = pos.to_pos2();
+                        let click_point = [position.x as f64, position.y as f64];
+                        if first_click.is_none() {
+                            *first_click = Some(click_point);
+                            *second_click = None;
+                            *difference = None;
+                        } else if second_click.is_none() {
+                            *second_click = Some(click_point);
+                            let (first, second) = (first_click.unwrap(), click_point);
+                            let dx = second[0] - first[0];
+                            let dy = second[1] - first[1];
+                            *difference = Some([dx, dy]);
+                        } else {
+                            *first_click = None;
+                            *second_click = None;
+                            *difference = None;
+                        }
+                    }
                 });
             }
 
@@ -354,6 +409,49 @@ impl LogPlot {
                         // Translate X to start from the first data point timestamp
                         bounds.translate_x(-bounds.min()[0] + first_timestamp);
                         plot_ui.set_plot_bounds(bounds);
+                    }
+
+                    if let Some(first) = *first_click {
+                        plot_ui.points(
+                            Points::new(vec![first])
+                                .shape(egui_plot::MarkerShape::Cross)
+                                .color(Color32::RED)
+                                .radius(25.0)
+                                .name("First Click"),
+                        );
+                    }
+
+                    if let Some(second) = *second_click {
+                        plot_ui.points(
+                            Points::new(vec![second])
+                                .shape(egui_plot::MarkerShape::Plus)
+                                .color(Color32::BLUE)
+                                .radius(25.0)
+                                .name("Second Click"),
+                        );
+                    }
+
+                    if plot_ui.response().clicked() {
+                        log::info!("Plot was clicked");
+                        let pos = plot_ui.pointer_coordinate().unwrap();
+                        log::info!("Clicked at: {pos:?}");
+                        let position = pos.to_pos2();
+                        let click_point = [position.x as f64, position.y as f64];
+                        if first_click.is_none() {
+                            *first_click = Some(click_point);
+                            *second_click = None;
+                            *difference = None;
+                        } else if second_click.is_none() {
+                            *second_click = Some(click_point);
+                            let (first, second) = (first_click.unwrap(), click_point);
+                            let dx = second[0] - first[0];
+                            let dy = second[1] - first[1];
+                            *difference = Some([dx, dy]);
+                        } else {
+                            *first_click = Some(click_point);
+                            *second_click = None;
+                            *difference = None;
+                        }
                     }
                 });
             }
