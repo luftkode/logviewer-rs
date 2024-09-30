@@ -769,7 +769,8 @@ dependencies = [
 [[package]]
 name = "egui-phosphor"
 version = "0.7.1"
-source = "git+https://github.com/amPerl/egui-phosphor.git?rev=87e39e777d57a40309dd02ccfbf53d769e181d2f#87e39e777d57a40309dd02ccfbf53d769e181d2f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3e0a31856effd375729ef9fc853a2a1091708552968d0fc979873b8a1be8ef1"
 dependencies = [
  "egui",
 ]
