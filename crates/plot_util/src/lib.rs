@@ -1,7 +1,7 @@
 pub mod mipmap;
 
-use egui::Color32;
-use egui_plot::{Line, PlotBounds, PlotPoint, PlotPoints};
+use egui::{Color32, Stroke};
+use egui_plot::{Line, PlotBounds, PlotPoint, PlotPoints, Polygon};
 use log_if::prelude::*;
 
 pub mod plots;
@@ -44,7 +44,6 @@ pub fn plot_lines(
         .iter_mut()
         .filter(|p| !name_filter.contains(&p.name()) && !id_filter.contains(&p.log_id()))
     {
-        // TODO: Make some kind of rotating color scheme such that min/max plots look kind of similar but that a lot of different colors are still used
         match mipmap_cfg {
             MipMapConfiguration::Disabled => plot_raw(plot_ui, plot_vals, (x_lower, x_higher)),
             MipMapConfiguration::Enabled(level_option) => {
@@ -132,11 +131,67 @@ fn plot_min_max_lines(
     let mut label_max = base_label.to_owned();
     label_max.push_str(" (max)");
 
+    let shaded_area = create_filled_segments_trapezoids(&points_max, &points_min, color);
     let line_min = Line::new(points_min).name(label_min).color(color);
     let line_max = Line::new(points_max).name(label_max).color(color);
 
+    for polygon in shaded_area {
+        plot_ui.add(polygon);
+    }
     plot_ui.line(line_min.width(line_width));
     plot_ui.line(line_max.width(line_width));
+}
+
+fn create_filled_segments_trapezoids(
+    top_line: &[[f64; 2]],
+    bot_line: &[[f64; 2]],
+    color: Color32,
+) -> Vec<Polygon> {
+    let transparent_color = color.additive();
+    top_line
+        .windows(2)
+        .zip(bot_line.windows(2))
+        .map(|(top_window, bot_window)| {
+            let points = vec![top_window[0], top_window[1], bot_window[1], bot_window[0]];
+            Polygon::new(PlotPoints::new(points))
+                .fill_color(transparent_color)
+                .allow_hover(false)
+                .stroke(Stroke::new(0.0, transparent_color))
+        })
+        .collect()
+}
+
+fn create_filled_segments_triangles(
+    top_line: &[[f64; 2]],
+    bot_line: &[[f64; 2]],
+    color: Color32,
+) -> Vec<Polygon> {
+    let transparent_color = color.additive();
+    let mut triangles = Vec::new();
+
+    for (i, (&top, &bot)) in top_line.iter().zip(bot_line.iter()).enumerate() {
+        if i < top_line.len() - 2 {
+            // First triangle
+            let points1 = vec![top, top_line[i + 1], bot];
+            triangles.push(
+                Polygon::new(PlotPoints::new(points1))
+                    .fill_color(color)
+                    .allow_hover(false)
+                    .stroke(Stroke::new(0.0, transparent_color)),
+            );
+
+            // Second triangle
+            let points2 = vec![bot, top_line[i + 1], bot_line[i + 1]];
+            triangles.push(
+                Polygon::new(PlotPoints::new(points2))
+                    .fill_color(color)
+                    .allow_hover(false)
+                    .stroke(Stroke::new(0.0, transparent_color)),
+            );
+        }
+    }
+
+    triangles
 }
 
 pub fn plot_labels(plot_ui: &mut egui_plot::PlotUi, plot_data: &PlotData, id_filter: &[usize]) {
