@@ -91,4 +91,5 @@ install-extra-devtools:
     cargo install cargo-limit --locked
     cargo install bacon --locked
 
-
+apt-install-hdf5-header:
+    sudo apt install libhdf5-dev

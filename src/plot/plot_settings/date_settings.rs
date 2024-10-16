@@ -1,8 +1,46 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
+use egui::RichText;
 use plot_util::{PlotData, Plots};
 use serde::{Deserialize, Serialize};
 
-use crate::app::supported_logs::ParseInfo;
+use crate::app::supported_formats::logs::parse_info::ParseInfo;
+
+#[derive(PartialEq, Eq, Deserialize, Serialize)]
+pub struct LoadedLogMetadata {
+    description: String,
+    value: String,
+    selected: bool,
+}
+impl LoadedLogMetadata {
+    pub fn new(description: String, value: String) -> Self {
+        Self {
+            description,
+            value,
+            selected: false,
+        }
+    }
+
+    pub fn show(&mut self, ui: &mut egui::Ui) {
+        ui.label(RichText::new(&self.description).strong());
+        if self.value.len() > 100 {
+            let shortened_preview_value = format!("{} ...", &self.value[..40]);
+            if ui.button(&shortened_preview_value).clicked() {
+                self.selected = !self.selected;
+            };
+            if self.selected {
+                egui::Window::new(shortened_preview_value)
+                    .open(&mut self.selected)
+                    .show(ui.ctx(), |ui| {
+                        ui.horizontal_wrapped(|ui| ui.label(&self.value));
+                    });
+            }
+        } else {
+            ui.label(&self.value);
+        }
+
+        ui.end_row();
+    }
+}
 
 #[derive(PartialEq, Eq, Deserialize, Serialize)]
 pub struct LoadedLogSettings {
@@ -16,8 +54,8 @@ pub struct LoadedLogSettings {
     pub new_date_candidate: Option<NaiveDateTime>,
     pub date_changed: bool,
     show: bool,
-    log_metadata: Option<Vec<(String, String)>>,
-    parse_info: ParseInfo,
+    log_metadata: Option<Vec<LoadedLogMetadata>>,
+    parse_info: Option<ParseInfo>,
 }
 
 impl LoadedLogSettings {
@@ -26,8 +64,13 @@ impl LoadedLogSettings {
         descriptive_name: String,
         start_date: DateTime<Utc>,
         log_metadata: Option<Vec<(String, String)>>,
-        parse_info: ParseInfo,
+        parse_info: Option<ParseInfo>,
     ) -> Self {
+        let log_metadata = log_metadata.map(|l| {
+            l.into_iter()
+                .map(|l| LoadedLogMetadata::new(l.0, l.1))
+                .collect()
+        });
         Self {
             log_id,
             log_descriptive_name: descriptive_name,
@@ -73,11 +116,11 @@ impl LoadedLogSettings {
         &mut self.show
     }
 
-    pub fn log_metadata(&self) -> Option<&[(String, String)]> {
-        self.log_metadata.as_deref()
+    pub fn log_metadata(&mut self) -> Option<&mut [LoadedLogMetadata]> {
+        self.log_metadata.as_deref_mut()
     }
 
-    pub fn parse_info(&self) -> ParseInfo {
+    pub fn parse_info(&self) -> Option<ParseInfo> {
         self.parse_info
     }
 }

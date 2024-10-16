@@ -275,7 +275,10 @@ impl<T: Num + ToPrimitive + FromPrimitive + Copy + PartialOrd> MipMap2D<T> {
 ///
 /// This function is highly optimized for performance.
 #[inline(always)]
-#[allow(clippy::needless_pass_by_value)]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "It's a numeric primitive, we don't mind passing by value"
+)]
 pub fn fast_unix_ns_to_usize<T: Num + ToPrimitive + FromPrimitive + PartialOrd>(
     unix_ts_ns: T,
 ) -> usize {

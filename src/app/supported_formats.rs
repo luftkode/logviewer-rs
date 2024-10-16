@@ -1,5 +1,9 @@
 use egui::DroppedFile;
 use log_if::prelude::*;
+use logs::{
+    parse_info::{ParseInfo, ParsedBytes, TotalBytes},
+    SupportedLog,
+};
 use serde::{Deserialize, Serialize};
 use skytem_logs::{
     generator::{GeneratorLog, GeneratorLogEntry},
@@ -10,79 +14,73 @@ use std::{
     io::{self, BufReader},
     path::Path,
 };
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
-pub struct ParsedBytes(usize);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
-pub struct TotalBytes(usize);
+#[cfg(not(target_arch = "wasm32"))]
+mod hdf;
+pub(crate) mod logs;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
-pub struct ParseInfo {
-    parsed_bytes: ParsedBytes,
-    total_bytes: TotalBytes,
-}
-
-impl ParseInfo {
-    pub fn new(parsed_bytes: ParsedBytes, total_bytes: TotalBytes) -> Self {
-        let parsed = parsed_bytes.0;
-        let total = total_bytes.0;
-
-        debug_assert!(
-            parsed <= total,
-            "Unsound condition, parsed more than the total bytes! Parsed: {parsed}, total: {total}"
-        );
-        Self {
-            parsed_bytes,
-            total_bytes,
-        }
-    }
-    pub fn parsed_bytes(&self) -> usize {
-        self.parsed_bytes.0
-    }
-
-    pub fn total_bytes(&self) -> usize {
-        self.total_bytes.0
-    }
-
-    pub fn remainder_bytes(&self) -> usize {
-        self.total_bytes.0 - self.parsed_bytes.0
-    }
-}
-
-/// Represents a supported log, which can be any of the supported log types.
+/// Represents a supported format, which can be any of the supported format types.
 ///
-/// This simply serves to encapsulate all the supported logs in a single type
+/// This simply serves to encapsulate all the supported format in a single type
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub enum SupportedLog {
-    MbedPid(PidLog, ParseInfo),
-    MbedStatus(StatusLog, ParseInfo),
-    Generator(GeneratorLog, ParseInfo),
+#[allow(
+    clippy::large_enum_variant,
+    reason = "This enum is only created once when parsing an added file for the first time so optimizing memory for an instance of this enum is a waste of effort"
+)]
+pub enum SupportedFormat {
+    Log(SupportedLog),
+    #[allow(clippy::upper_case_acronyms, reason = "The format is called HDF...")]
+    #[cfg(not(target_arch = "wasm32"))]
+    HDF(hdf::SupportedHdfFormat),
 }
 
-impl SupportedLog {
+impl From<(PidLog, ParseInfo)> for SupportedFormat {
+    fn from(value: (PidLog, ParseInfo)) -> Self {
+        Self::Log(SupportedLog::from(value))
+    }
+}
+
+impl From<(StatusLog, ParseInfo)> for SupportedFormat {
+    fn from(value: (StatusLog, ParseInfo)) -> Self {
+        Self::Log(SupportedLog::from(value))
+    }
+}
+
+impl From<(GeneratorLog, ParseInfo)> for SupportedFormat {
+    fn from(value: (GeneratorLog, ParseInfo)) -> Self {
+        Self::Log(SupportedLog::from(value))
+    }
+}
+
+impl SupportedFormat {
     /// Attempts to parse a log from raw content.
+    ///
+    /// This is how content is made available in a browser.
     fn parse_from_content(mut content: &[u8]) -> io::Result<Self> {
         let total_bytes = content.len();
         log::debug!("Parsing content of length: {total_bytes}");
-        let log = if PidLog::is_buf_valid(content) {
+        let log: Self = if PidLog::is_buf_valid(content) {
             let (log, read_bytes) = PidLog::from_reader(&mut content)?;
             log::debug!("Read: {read_bytes} bytes");
-            Self::MbedPid(
+            (
                 log,
                 ParseInfo::new(ParsedBytes(read_bytes), TotalBytes(total_bytes)),
             )
+                .into()
         } else if StatusLog::is_buf_valid(content) {
             let (log, read_bytes) = StatusLog::from_reader(&mut content)?;
-            Self::MbedStatus(
+            (
                 log,
                 ParseInfo::new(ParsedBytes(read_bytes), TotalBytes(read_bytes)),
             )
+                .into()
         } else if GeneratorLogEntry::is_bytes_valid_generator_log_entry(content) {
             let (log, read_bytes) = GeneratorLog::from_reader(&mut content)?;
-            Self::Generator(
+            (
                 log,
                 ParseInfo::new(ParsedBytes(read_bytes), TotalBytes(total_bytes)),
             )
+                .into()
         } else {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -94,31 +92,38 @@ impl SupportedLog {
     }
 
     /// Attempts to parse a log from a file path.
+    ///
+    /// This is how it is made available on native.
     fn parse_from_path(path: &Path) -> io::Result<Self> {
         let file = fs::File::open(path)?;
         let total_bytes = file.metadata()?.len() as usize;
         log::debug!("Parsing content of length: {total_bytes}");
-        let mut reader = BufReader::new(file);
 
-        let log = if PidLog::file_is_valid(path) {
+        let mut reader = BufReader::new(file);
+        let log: Self = if skytem_hdf::path_has_hdf_extension(path) {
+            Self::parse_hdf_from_path(path)?
+        } else if PidLog::file_is_valid(path) {
             let (log, parsed_bytes) = PidLog::from_reader(&mut reader)?;
             log::debug!("Read: {parsed_bytes} bytes");
-            Self::MbedPid(
+            (
                 log,
                 ParseInfo::new(ParsedBytes(parsed_bytes), TotalBytes(total_bytes)),
             )
+                .into()
         } else if StatusLog::file_is_valid(path) {
             let (log, parsed_bytes) = StatusLog::from_reader(&mut reader)?;
-            Self::MbedStatus(
+            (
                 log,
                 ParseInfo::new(ParsedBytes(parsed_bytes), TotalBytes(total_bytes)),
             )
+                .into()
         } else if GeneratorLog::file_is_generator_log(path).unwrap_or(false) {
             let (log, parsed_bytes) = GeneratorLog::from_reader(&mut reader)?;
-            Self::Generator(
+            (
                 log,
                 ParseInfo::new(ParsedBytes(parsed_bytes), TotalBytes(total_bytes)),
             )
+                .into()
         } else {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -129,72 +134,98 @@ impl SupportedLog {
         Ok(log)
     }
 
-    pub fn parse_info(&self) -> ParseInfo {
+    #[cfg(not(target_arch = "wasm32"))]
+    fn parse_hdf_from_path(path: &Path) -> io::Result<Self> {
+        use skytem_hdf::bifrost::BifrostLoopCurrent;
+        // Attempt to parse it has an hdf file
+        if let Ok(bifrost_loop_current) = BifrostLoopCurrent::from_path(path) {
+            Ok(Self::HDF(bifrost_loop_current.into()))
+        } else {
+            Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Unrecognized HDF file",
+            ))
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn parse_hdf_from_path(path: &Path) -> io::Result<Self> {
+        Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("Recognized '{}' as an HDF file. HDF files are only supported on the native version", path.display()),
+        ))
+    }
+
+    /// Returns [`None`] if there's no meaningful parsing information such as with HDF5 files.
+    #[allow(
+        clippy::unnecessary_wraps,
+        reason = "HDF files are not supported on web (yet?) and the lint is triggered when compiling for web since then only logs are supported which always have parse info"
+    )]
+    pub fn parse_info(&self) -> Option<ParseInfo> {
         match self {
-            Self::MbedPid(_, parse_info)
-            | Self::MbedStatus(_, parse_info)
-            | Self::Generator(_, parse_info) => *parse_info,
+            Self::Log(l) => Some(l.parse_info()),
+            #[cfg(not(target_arch = "wasm32"))]
+            Self::HDF(_) => None,
         }
     }
 }
 
-impl Plotable for SupportedLog {
+impl Plotable for SupportedFormat {
     fn raw_plots(&self) -> &[RawPlot] {
         match self {
-            Self::MbedPid(l, _) => l.raw_plots(),
-            Self::MbedStatus(l, _) => l.raw_plots(),
-            Self::Generator(l, _) => l.raw_plots(),
+            Self::Log(l) => l.raw_plots(),
+            #[cfg(not(target_arch = "wasm32"))]
+            Self::HDF(hdf) => hdf.raw_plots(),
         }
     }
 
     fn first_timestamp(&self) -> chrono::DateTime<chrono::Utc> {
         match self {
-            Self::MbedPid(l, _) => l.first_timestamp(),
-            Self::MbedStatus(l, _) => l.first_timestamp(),
-            Self::Generator(l, _) => l.first_timestamp(),
+            Self::Log(l) => l.first_timestamp(),
+            #[cfg(not(target_arch = "wasm32"))]
+            Self::HDF(hdf) => hdf.first_timestamp(),
         }
     }
 
     fn descriptive_name(&self) -> &str {
         match self {
-            Self::MbedPid(l, _) => l.descriptive_name(),
-            Self::MbedStatus(l, _) => l.descriptive_name(),
-            Self::Generator(l, _) => l.descriptive_name(),
+            Self::Log(l) => l.descriptive_name(),
+            #[cfg(not(target_arch = "wasm32"))]
+            Self::HDF(hdf) => hdf.descriptive_name(),
         }
     }
 
     fn labels(&self) -> Option<&[PlotLabels]> {
         match self {
-            Self::MbedPid(l, _) => l.labels(),
-            Self::MbedStatus(l, _) => l.labels(),
-            Self::Generator(l, _) => l.labels(),
+            Self::Log(l) => l.labels(),
+            #[cfg(not(target_arch = "wasm32"))]
+            Self::HDF(hdf) => hdf.labels(),
         }
     }
 
     fn metadata(&self) -> Option<Vec<(String, String)>> {
         match self {
-            Self::MbedPid(l, _) => l.metadata(),
-            Self::MbedStatus(l, _) => l.metadata(),
-            Self::Generator(l, _) => l.metadata(),
+            Self::Log(l) => l.metadata(),
+            #[cfg(not(target_arch = "wasm32"))]
+            Self::HDF(hdf) => hdf.metadata(),
         }
     }
-    // Implement any methods required by the Plotable trait for SupportedLog
 }
 
 /// Contains all supported logs in a single vector.
 #[derive(Default, Deserialize, Serialize)]
 pub struct SupportedLogs {
-    logs: Vec<SupportedLog>,
+    logs: Vec<SupportedFormat>,
 }
 
 impl SupportedLogs {
     /// Return a vector of immutable references to all logs
-    pub fn logs(&self) -> &[SupportedLog] {
+    pub fn logs(&self) -> &[SupportedFormat] {
         &self.logs
     }
 
     /// Take all the logs currently stored in [`SupportedLogs`] and return them as a list
-    pub fn take_logs(&mut self) -> Vec<SupportedLog> {
+    pub fn take_logs(&mut self) -> Vec<SupportedFormat> {
         self.logs.drain(..).collect()
     }
 
@@ -213,7 +244,8 @@ impl SupportedLogs {
 
     fn parse_file(&mut self, file: &DroppedFile) -> io::Result<()> {
         if let Some(content) = file.bytes.as_ref() {
-            self.logs.push(SupportedLog::parse_from_content(content)?);
+            self.logs
+                .push(SupportedFormat::parse_from_content(content)?);
         } else if let Some(path) = &file.path {
             if path.is_dir() {
                 self.parse_directory(path)?;
@@ -221,7 +253,7 @@ impl SupportedLogs {
                 #[cfg(not(target_arch = "wasm32"))]
                 self.parse_zip_file(path)?;
             } else {
-                self.logs.push(SupportedLog::parse_from_path(path)?);
+                self.logs.push(SupportedFormat::parse_from_path(path)?);
             }
         }
         Ok(())
@@ -239,7 +271,7 @@ impl SupportedLogs {
                 #[cfg(not(target_arch = "wasm32"))]
                 self.parse_zip_file(&path)?;
             } else {
-                match SupportedLog::parse_from_path(&path) {
+                match SupportedFormat::parse_from_path(&path) {
                     Ok(l) => self.logs.push(l),
                     Err(e) => log::warn!("{e}"),
                 }
@@ -258,7 +290,7 @@ impl SupportedLogs {
             if file.is_file() {
                 let mut contents = Vec::new();
                 io::Read::read_to_end(&mut file, &mut contents)?;
-                if let Ok(log) = SupportedLog::parse_from_content(&contents) {
+                if let Ok(log) = SupportedFormat::parse_from_content(&contents) {
                     self.logs.push(log);
                 }
             }

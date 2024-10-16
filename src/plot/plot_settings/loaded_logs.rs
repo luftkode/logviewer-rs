@@ -2,7 +2,10 @@ use chrono::NaiveDateTime;
 use egui::{Color32, Key, RichText, TextEdit};
 use egui_phosphor::regular;
 
-use crate::{app::WARN_ON_UNPARSED_BYTES_THRESHOLD, util::format_data_size};
+use crate::{
+    app::{supported_formats::logs::parse_info::ParseInfo, WARN_ON_UNPARSED_BYTES_THRESHOLD},
+    util::format_data_size,
+};
 
 use super::date_settings::LoadedLogSettings;
 
@@ -49,31 +52,14 @@ fn log_settings_window(ui: &egui::Ui, settings: &mut LoadedLogSettings, log_name
         .anchor(egui::Align2::LEFT_TOP, egui::Vec2::ZERO)
         .show(ui.ctx(), |ui| {
             ui.horizontal_wrapped(|ui| {
-                let parse_info = settings.parse_info();
-                let parse_info_str = format!(
-                    "Parsed {parsed}/{total}",
-                    parsed = format_data_size(settings.parse_info().parsed_bytes()),
-                    total = format_data_size(settings.parse_info().total_bytes()),
-                );
-                let unparsed_text = format!(
-                    "({} unparsed)",
-                    format_data_size(settings.parse_info().remainder_bytes())
-                );
-                if parse_info.remainder_bytes() > WARN_ON_UNPARSED_BYTES_THRESHOLD {
-                    ui.label(RichText::new("⚠").color(Color32::YELLOW));
-                    ui.label(parse_info_str);
-                    ui.label(RichText::new(unparsed_text).color(Color32::YELLOW));
-                } else {
-                    ui.label(parse_info_str);
-                    ui.label(RichText::new(unparsed_text));
+                if let Some(parse_info) = settings.parse_info() {
+                    show_parse_info(ui, parse_info);
                 }
             });
             if let Some(log_metadata) = settings.log_metadata() {
                 egui::Grid::new("metadata").show(ui, |ui| {
-                    for (k, v) in log_metadata {
-                        ui.label(RichText::new(k).strong());
-                        ui.label(v);
-                        ui.end_row();
+                    for log_metadata in log_metadata {
+                        log_metadata.show(ui);
                     }
                 });
             }
@@ -117,5 +103,25 @@ fn log_settings_window(ui: &egui::Ui, settings: &mut LoadedLogSettings, log_name
 
     if !open || ui.ctx().input(|i| i.key_pressed(Key::Escape)) {
         settings.clicked = false;
+    }
+}
+
+fn show_parse_info(ui: &mut egui::Ui, parse_info: ParseInfo) {
+    let parse_info_str = format!(
+        "Parsed {parsed}/{total}",
+        parsed = format_data_size(parse_info.parsed_bytes()),
+        total = format_data_size(parse_info.total_bytes()),
+    );
+    let unparsed_text = format!(
+        "({} unparsed)",
+        format_data_size(parse_info.remainder_bytes())
+    );
+    if parse_info.remainder_bytes() > WARN_ON_UNPARSED_BYTES_THRESHOLD {
+        ui.label(RichText::new("⚠").color(Color32::YELLOW));
+        ui.label(parse_info_str);
+        ui.label(RichText::new(unparsed_text).color(Color32::YELLOW));
+    } else {
+        ui.label(parse_info_str);
+        ui.label(RichText::new(unparsed_text));
     }
 }

@@ -1,13 +1,13 @@
 use log_if::prelude::*;
 use plot_util::{Plots, StoredPlotLabels};
 
-use crate::app::supported_logs::SupportedLog;
+use crate::app::supported_formats::SupportedFormat;
 
 use super::plot_settings::{date_settings::LoadedLogSettings, PlotSettings};
 
 pub fn add_plot_data_to_plot_collections(
     plots: &mut Plots,
-    log: &SupportedLog,
+    log: &SupportedFormat,
     plot_settings: &mut PlotSettings,
 ) {
     // This is how all logs get their log_id, and how each plot for each log gets their log_id

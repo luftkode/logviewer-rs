@@ -5,7 +5,11 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 use strum_macros::{Display, FromRepr};
 
-#[allow(non_camel_case_types, clippy::upper_case_acronyms)]
+#[allow(
+    non_camel_case_types,
+    clippy::upper_case_acronyms,
+    reason = "This is how it is represented in the motor control code"
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, FromRepr, Display)]
 pub enum MotorState {
     POWER_HOLD = 0,

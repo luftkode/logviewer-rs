@@ -13,6 +13,7 @@ pub struct AxisConfig {
     show_axes: bool,
     show_grid: bool,
     y_axis_lock: YAxisLock,
+    pub ui_visible: bool,
 }
 
 impl Default for AxisConfig {
@@ -23,6 +24,7 @@ impl Default for AxisConfig {
             show_axes: true,
             show_grid: true,
             y_axis_lock: YAxisLock::default(),
+            ui_visible: false,
         }
     }
 }

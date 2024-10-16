@@ -1,0 +1,30 @@
+[package]
+name = "skytem_hdf"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+plot_util = { version = "*", path = "../plot_util" }
+log_if = { version = "*", path = "../log_if" }
+egui_plot.workspace = true
+serde.workspace = true
+serde-big-array.workspace = true
+strum.workspace = true
+strum_macros.workspace = true
+byteorder.workspace = true
+chrono.workspace = true
+getset.workspace = true
+derive_more.workspace = true
+log.workspace = true
+num-traits.workspace = true
+toml.workspace = true
+ndarray = "0.16.1"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+hdf5 = { package = "hdf5-metno", version = "0.9", features = ["static"] }
+
+[dev-dependencies]
+testresult.workspace = true

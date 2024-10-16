@@ -7,7 +7,7 @@ use axis_config::AxisConfig;
 use egui::{Id, Response};
 use egui_plot::Legend;
 
-use crate::app::supported_logs::SupportedLog;
+use crate::app::supported_formats::SupportedFormat;
 mod axis_config;
 mod plot_graphics;
 mod plot_settings;
@@ -21,7 +21,10 @@ pub enum PlotType {
     Thousands,
 }
 
-#[allow(missing_debug_implementations)] // Legend is from egui_plot and doesn't implement debug
+#[allow(
+    missing_debug_implementations,
+    reason = "Legend is from egui_plot and doesn't implement debug"
+)]
 #[derive(PartialEq, Deserialize, Serialize)]
 pub struct LogPlotUi {
     legend_cfg: Legend,
@@ -57,7 +60,7 @@ impl LogPlotUi {
     pub fn ui(
         &mut self,
         ui: &mut egui::Ui,
-        logs: &[SupportedLog],
+        logs: &[SupportedFormat],
         _toasts: &mut Toasts,
     ) -> Response {
         let Self {

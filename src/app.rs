@@ -4,10 +4,10 @@ use crate::{plot::LogPlotUi, util::format_data_size};
 use egui::{Color32, DroppedFile, Hyperlink, RichText, TextStyle};
 use egui_notify::Toasts;
 use log_if::prelude::Plotable;
-use supported_logs::{SupportedLog, SupportedLogs};
+use supported_formats::{SupportedFormat, SupportedLogs};
 
 mod preview_dropped;
-pub mod supported_logs;
+pub mod supported_formats;
 mod util;
 
 /// if a log is loaded from content that exceeds this many unparsed bytes:
@@ -16,7 +16,10 @@ mod util;
 pub const WARN_ON_UNPARSED_BYTES_THRESHOLD: usize = 128;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
-#[allow(missing_debug_implementations)] // Some of the nested types are from egui or egui_plot and we cannot implement Debug for them
+#[allow(
+    missing_debug_implementations,
+    reason = "Some of the nested types are from egui or egui_plot and we cannot implement Debug for them"
+)]
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct App {
@@ -243,7 +246,7 @@ fn collapsible_instructions(ui: &mut egui::Ui) {
 }
 
 /// Displays a toasts notification if logs are added with the names of all added logs
-fn notify_if_logs_added(toasts: &mut Toasts, logs: &[SupportedLog]) {
+fn notify_if_logs_added(toasts: &mut Toasts, logs: &[SupportedFormat]) {
     if !logs.is_empty() {
         let mut log_names_str = String::new();
         for l in logs {
@@ -259,22 +262,23 @@ fn notify_if_logs_added(toasts: &mut Toasts, logs: &[SupportedLog]) {
             ))
             .duration(Some(Duration::from_secs(2)));
         for l in logs {
-            let parse_info = l.parse_info();
-            log::debug!(
-                "Unparsed bytes for {remainder}:{log_name}",
-                remainder = parse_info.remainder_bytes(),
-                log_name = l.descriptive_name()
-            );
-            if parse_info.remainder_bytes() > WARN_ON_UNPARSED_BYTES_THRESHOLD {
-                toasts
-                    .warning(format!(
+            if let Some(parse_info) = l.parse_info() {
+                log::debug!(
+                    "Unparsed bytes for {remainder}:{log_name}",
+                    remainder = parse_info.remainder_bytes(),
+                    log_name = l.descriptive_name()
+                );
+                if parse_info.remainder_bytes() > WARN_ON_UNPARSED_BYTES_THRESHOLD {
+                    toasts
+                        .warning(format!(
                     "Could only parse {parsed}/{total} for {log_name}\n{remainder} remain unparsed",
                     parsed = format_data_size(parse_info.parsed_bytes()),
                     total = format_data_size(parse_info.total_bytes()),
                     log_name = l.descriptive_name(),
                     remainder = format_data_size(parse_info.remainder_bytes())
                 ))
-                    .duration(Some(Duration::from_secs(30)));
+                        .duration(Some(Duration::from_secs(30)));
+                }
             }
         }
     }

@@ -1,5 +1,5 @@
 use date_settings::LoadedLogSettings;
-use egui::{Key, Response, RichText};
+use egui::{Color32, Key, Response, RichText};
 use egui_phosphor::regular;
 use mipmap_settings::MipMapSettings;
 use plot_filter::{PlotNameFilter, PlotNameShow};
@@ -25,7 +25,7 @@ impl Default for PlotSettingsUi {
         Self {
             show_loaded_logs: Default::default(),
             show_filter_settings: Default::default(),
-            filter_settings_text: format!("{} Filter {}", regular::FUNNEL, regular::CHART_LINE),
+            filter_settings_text: format!("{} Filter", regular::FUNNEL),
         }
     }
 }
@@ -59,51 +59,61 @@ pub struct PlotSettings {
 
 impl PlotSettings {
     pub fn show(&mut self, ui: &mut egui::Ui) {
-        self.visibility.toggle_visibility_ui(ui);
-        if !self.log_start_date_settings.is_empty() {
-            self.ps_ui.ui_toggle_show_filter(ui);
-            if self.ps_ui.show_filter_settings {
-                egui::Window::new(self.ps_ui.filter_settings_text())
-                    .open(&mut self.ps_ui.show_filter_settings)
-                    .show(ui.ctx(), |ui| {
-                        self.plot_name_filter.show(ui);
-                    });
-                if ui.ctx().input(|i| i.key_pressed(Key::Escape)) {
-                    self.ps_ui.show_filter_settings = false;
-                }
-            }
-
-            let show_loaded_logs_text = RichText::new(format!(
-                "{} Loaded logs",
-                if self.ps_ui.show_loaded_logs {
-                    regular::EYE
-                } else {
-                    regular::EYE_SLASH
-                }
-            ));
-            ui.toggle_value(
-                &mut self.ps_ui.show_loaded_logs,
-                show_loaded_logs_text.text(),
-            );
-            if self.ps_ui.show_loaded_logs {
-                // Only react on Escape input if no settings are currently open
-                if ui.ctx().input(|i| i.key_pressed(Key::Escape))
-                    && !self.log_start_date_settings.iter().any(|s| s.clicked)
-                {
-                    self.ps_ui.show_loaded_logs = false;
-                }
-                egui::Window::new(show_loaded_logs_text)
-                    .open(&mut self.ps_ui.show_loaded_logs)
-                    .show(ui.ctx(), |ui| {
-                        egui::Grid::new("log_settings_grid").show(ui, |ui| {
-                            for settings in &mut self.log_start_date_settings {
-                                loaded_logs::log_date_settings_ui(ui, settings);
-                                ui.end_row();
-                            }
-                        });
-                    });
-            }
+        if self.log_start_date_settings.is_empty() {
+            ui.label(RichText::new("No Logs Loaded").color(Color32::RED));
+        } else {
+            self.show_loaded_logs(ui);
+            self.ui_plot_filter_settings(ui);
             self.mipmap_settings.show(ui);
+        }
+        self.visibility.toggle_visibility_ui(ui);
+    }
+
+    fn ui_plot_filter_settings(&mut self, ui: &mut egui::Ui) {
+        self.ps_ui.ui_toggle_show_filter(ui);
+        if self.ps_ui.show_filter_settings {
+            egui::Window::new(self.ps_ui.filter_settings_text())
+                .open(&mut self.ps_ui.show_filter_settings)
+                .show(ui.ctx(), |ui| {
+                    self.plot_name_filter.show(ui);
+                });
+            if ui.ctx().input(|i| i.key_pressed(Key::Escape)) {
+                self.ps_ui.show_filter_settings = false;
+            }
+        }
+    }
+
+    fn show_loaded_logs(&mut self, ui: &mut egui::Ui) {
+        let loaded_log_count = self.log_start_date_settings.len();
+        let visibility_icon = if self.ps_ui.show_loaded_logs {
+            regular::EYE
+        } else {
+            regular::EYE_SLASH
+        };
+        let show_loaded_logs_text = RichText::new(format!(
+            "{visibility_icon} Loaded logs ({loaded_log_count})",
+        ));
+        ui.toggle_value(
+            &mut self.ps_ui.show_loaded_logs,
+            show_loaded_logs_text.text(),
+        );
+        if self.ps_ui.show_loaded_logs {
+            // Only react on Escape input if no settings are currently open
+            if ui.ctx().input(|i| i.key_pressed(Key::Escape))
+                && !self.log_start_date_settings.iter().any(|s| s.clicked)
+            {
+                self.ps_ui.show_loaded_logs = false;
+            }
+            egui::Window::new(show_loaded_logs_text)
+                .open(&mut self.ps_ui.show_loaded_logs)
+                .show(ui.ctx(), |ui| {
+                    egui::Grid::new("log_settings_grid").show(ui, |ui| {
+                        for settings in &mut self.log_start_date_settings {
+                            loaded_logs::log_date_settings_ui(ui, settings);
+                            ui.end_row();
+                        }
+                    });
+                });
         }
     }
 
