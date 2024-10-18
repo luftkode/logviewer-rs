@@ -1,9 +1,11 @@
+use chrono::{DateTime, Utc};
 use log_if::prelude::*;
 use parse_info::ParseInfo;
 use serde::{Deserialize, Serialize};
 use skytem_logs::{
     generator::GeneratorLog,
     mbed_motor_control::{pid::pidlog::PidLog, status::statuslog::StatusLog},
+    navsys::NavSysSps,
 };
 
 pub(crate) mod parse_info;
@@ -16,6 +18,7 @@ pub enum SupportedLog {
     MbedPid(PidLog, ParseInfo),
     MbedStatus(StatusLog, ParseInfo),
     Generator(GeneratorLog, ParseInfo),
+    NavSysSps(NavSysSps, ParseInfo),
 }
 
 impl SupportedLog {
@@ -23,6 +26,7 @@ impl SupportedLog {
         match self {
             Self::MbedPid(_, parse_info)
             | Self::MbedStatus(_, parse_info)
+            | Self::NavSysSps(_, parse_info)
             | Self::Generator(_, parse_info) => *parse_info,
         }
     }
@@ -52,14 +56,16 @@ impl Plotable for SupportedLog {
             Self::MbedPid(l, _) => l.raw_plots(),
             Self::MbedStatus(l, _) => l.raw_plots(),
             Self::Generator(l, _) => l.raw_plots(),
+            Self::NavSysSps(l, _) => l.raw_plots(),
         }
     }
 
-    fn first_timestamp(&self) -> chrono::DateTime<chrono::Utc> {
+    fn first_timestamp(&self) -> DateTime<Utc> {
         match self {
             Self::MbedPid(l, _) => l.first_timestamp(),
             Self::MbedStatus(l, _) => l.first_timestamp(),
             Self::Generator(l, _) => l.first_timestamp(),
+            Self::NavSysSps(l, _) => l.first_timestamp(),
         }
     }
 
@@ -68,6 +74,7 @@ impl Plotable for SupportedLog {
             Self::MbedPid(l, _) => l.descriptive_name(),
             Self::MbedStatus(l, _) => l.descriptive_name(),
             Self::Generator(l, _) => l.descriptive_name(),
+            Self::NavSysSps(l, _) => l.descriptive_name(),
         }
     }
 
@@ -76,6 +83,7 @@ impl Plotable for SupportedLog {
             Self::MbedPid(l, _) => l.labels(),
             Self::MbedStatus(l, _) => l.labels(),
             Self::Generator(l, _) => l.labels(),
+            Self::NavSysSps(l, _) => l.labels(),
         }
     }
 
@@ -84,6 +92,7 @@ impl Plotable for SupportedLog {
             Self::MbedPid(l, _) => l.metadata(),
             Self::MbedStatus(l, _) => l.metadata(),
             Self::Generator(l, _) => l.metadata(),
+            Self::NavSysSps(l, _) => l.metadata(),
         }
     }
 }

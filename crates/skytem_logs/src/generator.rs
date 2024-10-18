@@ -6,7 +6,7 @@ use std::{
 };
 
 use chrono::NaiveDateTime;
-use log_if::prelude::*;
+use log_if::{log::LogEntry, parseable::Parseable, prelude::*};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -34,15 +34,30 @@ impl GeneratorLog {
 impl SkytemLog for GeneratorLog {
     type Entry = GeneratorLogEntry;
 
-    fn from_reader(reader: &mut impl io::Read) -> io::Result<(Self, usize)> {
-        let mut buf_reader = BufReader::new(reader);
+    fn entries(&self) -> &[Self::Entry] {
+        &self.entries
+    }
+}
+
+impl Parseable for GeneratorLog {
+    const DESCRIPTIVE_NAME: &str = "Legacy Generator Log";
+    fn is_buf_valid(buf: &[u8]) -> bool {
+        let mut bufreader = BufReader::new(buf);
+        let mut line = String::new();
+        if bufreader.read_line(&mut line).is_err() {
+            return false;
+        }
+        GeneratorLogEntry::is_line_valid_generator_log_entry(&line)
+    }
+
+    fn from_reader(reader: &mut impl io::BufRead) -> io::Result<(Self, usize)> {
         let mut entries = Vec::new();
         let mut total_bytes_read = 0;
 
         // Read the buffer in chunks and handle the line parsing
         loop {
             let mut line = String::new();
-            let bytes_read = buf_reader.read_line(&mut line)?;
+            let bytes_read = reader.read_line(&mut line)?;
 
             // If we didn't read any bytes, we're done
             if bytes_read == 0 {
@@ -82,10 +97,6 @@ impl SkytemLog for GeneratorLog {
             },
             total_bytes_read,
         ))
-    }
-
-    fn entries(&self) -> &[Self::Entry] {
-        &self.entries
     }
 }
 
@@ -232,15 +243,6 @@ pub struct GeneratorLogEntry {
 }
 
 impl GeneratorLogEntry {
-    pub fn is_bytes_valid_generator_log_entry(bytes: &[u8]) -> bool {
-        let mut bufreader = BufReader::new(bytes);
-        let mut line = String::new();
-        if bufreader.read_line(&mut line).is_err() {
-            return false;
-        }
-        Self::is_line_valid_generator_log_entry(&line)
-    }
-
     pub fn is_line_valid_generator_log_entry(line: &str) -> bool {
         let parts: Vec<&str> = line.split_whitespace().collect();
         if *parts.get(1).unwrap_or(&"") != "Vout:" {
@@ -281,12 +283,11 @@ impl GeneratorLogEntry {
 }
 
 impl LogEntry for GeneratorLogEntry {
-    fn from_reader(reader: &mut impl io::Read) -> io::Result<(Self, usize)> {
+    fn from_reader(reader: &mut impl io::BufRead) -> io::Result<(Self, usize)> {
         let mut line = String::new();
-        let mut bufreader = BufReader::new(reader);
 
         // Read the line and track the number of bytes read
-        let bytes_read = bufreader.read_line(&mut line)?;
+        let bytes_read = reader.read_line(&mut line)?;
 
         let gen_log_entry = Self::from_str(&line)?;
 
@@ -472,9 +473,7 @@ mod tests {
         let valid_line_as_bytes = b"20230124_134745 Vout: 74.3 Vbat: 0.1 Iout: 0.0 RPM: 6075 Load: 10.2 PWM: 10.2 Temp1 6.9 Temp2 8.4 IIn: 8.8 Irotor: 0.7 Rrotor: 11.2
 20230124_134746 Vout: 59.3 Vbat: 0.1 Iout: 0.0 RPM: 5438 Load: 81.2 PWM: 18.0 Temp1 6.9 Temp2 8.6 IIn: 35.5 Irotor: 0.9 Rrotor: 11.5";
 
-        assert!(GeneratorLogEntry::is_bytes_valid_generator_log_entry(
-            valid_line_as_bytes
-        ));
+        assert!(GeneratorLog::is_buf_valid(valid_line_as_bytes));
     }
 
     #[test]
@@ -482,9 +481,7 @@ mod tests {
         let invalid_bytes = b"20230124_134745 Vo 74. 0.1 Iout: 0.0 RPM: 6075 Load: 10.2 PWM:  8.4 IIn: 8.8 Irotor: 0.7 Rrotor: 11.2
 20230124_134746 Vout: 59.3 Vbat: 0.1 Iout: 0.0 RPM: 5438 Load: 81.2 PWM: 18.0 Temp1 6.9 Temp2 8.6 IIn: 35.5 Irotor: 0.9 Rrotor: 11.5";
 
-        assert!(!GeneratorLogEntry::is_bytes_valid_generator_log_entry(
-            invalid_bytes
-        ));
+        assert!(!GeneratorLog::is_buf_valid(invalid_bytes));
     }
 
     #[test]

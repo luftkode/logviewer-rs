@@ -46,11 +46,11 @@ pub trait MbedMotorControlLogHeader: GitMetadata + Sized + Display + Send + Sync
     }
 
     /// Deserialize a header for a `reader` that implements [Read]
-    fn from_reader(reader: &mut impl io::Read) -> io::Result<(Self, usize)>;
+    fn from_reader(reader: &mut impl io::BufRead) -> io::Result<(Self, usize)>;
 
     /// Deserialize a header with a reader starting just after the version field.
     fn from_reader_with_uniq_descr_version(
-        reader: &mut impl io::Read,
+        reader: &mut impl io::BufRead,
         unique_description: UniqueDescriptionData,
         version: u16,
     ) -> io::Result<(Self, usize)>;
@@ -59,7 +59,7 @@ pub trait MbedMotorControlLogHeader: GitMetadata + Sized + Display + Send + Sync
 /// Helper trait such that Pid and Status log v1 can reuse all this code
 pub trait BuildMbedLogHeaderV1: Sized + MbedMotorControlLogHeader {
     /// Deserialize a header for a `reader` that implements [Read]
-    fn build_from_reader(reader: &mut impl io::Read) -> io::Result<(Self, usize)> {
+    fn build_from_reader(reader: &mut impl io::BufRead) -> io::Result<(Self, usize)> {
         let mut total_bytes_read = 0;
         let mut unique_description: UniqueDescriptionData = [0u8; SIZEOF_UNIQ_DESC];
         total_bytes_read += SIZEOF_UNIQ_DESC;
@@ -126,7 +126,7 @@ pub trait BuildMbedLogHeaderV1: Sized + MbedMotorControlLogHeader {
 /// Helper trait such that Pid and Status log v2 can reuse all this code
 pub trait BuildMbedLogHeaderV2: Sized + MbedMotorControlLogHeader {
     /// Deserialize a header for a `reader` that implements [Read]
-    fn build_from_reader(reader: &mut impl io::Read) -> io::Result<(Self, usize)> {
+    fn build_from_reader(reader: &mut impl io::BufRead) -> io::Result<(Self, usize)> {
         let mut total_bytes_read = 0;
         let mut unique_description: UniqueDescriptionData = [0u8; SIZEOF_UNIQ_DESC];
         total_bytes_read += SIZEOF_UNIQ_DESC;
@@ -140,7 +140,7 @@ pub trait BuildMbedLogHeaderV2: Sized + MbedMotorControlLogHeader {
     }
 
     fn build_from_reader_with_uniq_descr_version(
-        reader: &mut impl Read,
+        reader: &mut impl io::BufRead,
         unique_description: UniqueDescriptionData,
         version: u16,
     ) -> io::Result<(Self, usize)> {

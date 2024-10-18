@@ -6,7 +6,7 @@ pub trait Plotable {
     fn raw_plots(&self) -> &[RawPlot];
     /// Return the first timestamp, meaning the timestamp of the first entry
     fn first_timestamp(&self) -> DateTime<Utc>;
-    /// A name that describes the type of log to the user
+    /// A name that describes the type of plotable data to the user (e.g. "Mbed PID log")
     fn descriptive_name(&self) -> &str;
     /// Return all labels (if any) that should be shown on the plot(s)
     fn labels(&self) -> Option<&[PlotLabels]>;

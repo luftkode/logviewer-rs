@@ -128,7 +128,7 @@ impl MbedMotorControlLogHeader for StatusLogHeaderV1 {
     }
 
     /// Deserialize a header for a `reader` that implements [Read]
-    fn from_reader(reader: &mut impl io::Read) -> io::Result<(Self, usize)> {
+    fn from_reader(reader: &mut impl io::BufRead) -> io::Result<(Self, usize)> {
         Self::build_from_reader(reader)
     }
 

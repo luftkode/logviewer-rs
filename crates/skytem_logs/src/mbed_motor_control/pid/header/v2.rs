@@ -140,12 +140,12 @@ impl MbedMotorControlLogHeader for PidLogHeaderV2 {
     }
 
     /// Deserialize a header for a `reader` that implements [Read]
-    fn from_reader(reader: &mut impl io::Read) -> io::Result<(Self, usize)> {
+    fn from_reader(reader: &mut impl io::BufRead) -> io::Result<(Self, usize)> {
         Self::build_from_reader(reader)
     }
 
     fn from_reader_with_uniq_descr_version(
-        reader: &mut impl io::Read,
+        reader: &mut impl io::BufRead,
         unique_description: UniqueDescriptionData,
         version: u16,
     ) -> io::Result<(Self, usize)> {

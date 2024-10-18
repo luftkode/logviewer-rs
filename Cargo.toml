@@ -32,6 +32,7 @@ getset = "0.1.3"
 derive_more = { version = "1", features = ["full"] }
 num-traits = "0.2.19"
 toml = "0.8.19"
+thiserror = "1.0"
 
 # Dev dependencies
 testresult = "0.4.1"

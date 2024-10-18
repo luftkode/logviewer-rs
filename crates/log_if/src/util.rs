@@ -3,7 +3,7 @@ use std::io;
 
 /// Take a reader and parse [`LogEntry`]s from it until it returns an error,
 /// then return a vector of all [`LogEntry`]s and the total number of bytes read from the reader.
-pub fn parse_to_vec<T: LogEntry>(reader: &mut impl io::Read) -> (Vec<T>, usize) {
+pub fn parse_to_vec<T: LogEntry>(reader: &mut impl io::BufRead) -> (Vec<T>, usize) {
     let mut entries = Vec::new();
     let mut total_bytes_read = 0;
 

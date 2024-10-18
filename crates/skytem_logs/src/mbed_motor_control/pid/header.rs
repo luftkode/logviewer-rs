@@ -29,7 +29,7 @@ impl fmt::Display for PidLogHeader {
 }
 
 impl PidLogHeader {
-    pub(super) fn from_reader(reader: &mut impl io::Read) -> io::Result<(Self, usize)> {
+    pub(super) fn from_reader(reader: &mut impl io::BufRead) -> io::Result<(Self, usize)> {
         let mut total_bytes_read = 0;
 
         // Read unique description

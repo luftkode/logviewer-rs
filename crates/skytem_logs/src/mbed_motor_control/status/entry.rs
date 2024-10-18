@@ -1,7 +1,8 @@
 use std::{fmt, io};
 
-use crate::{util::parse_timestamp, LogEntry};
+use crate::util::parse_timestamp;
 use byteorder::{LittleEndian, ReadBytesExt};
+use log_if::log::LogEntry;
 use serde::{Deserialize, Serialize};
 use strum_macros::{Display, FromRepr};
 
@@ -54,7 +55,7 @@ impl fmt::Display for StatusLogEntry {
 }
 
 impl LogEntry for StatusLogEntry {
-    fn from_reader(reader: &mut impl io::Read) -> io::Result<(Self, usize)> {
+    fn from_reader(reader: &mut impl io::BufRead) -> io::Result<(Self, usize)> {
         // Start with 0 bytes read
         let mut total_bytes_read = 0;
 

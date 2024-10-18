@@ -1,7 +1,9 @@
 use std::{fmt, io};
 
-use crate::{util::parse_timestamp, LogEntry};
+use crate::util::parse_timestamp;
+
 use byteorder::{LittleEndian, ReadBytesExt};
+use log_if::log::LogEntry;
 
 #[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct PidLogEntry {
@@ -15,7 +17,7 @@ pub struct PidLogEntry {
 }
 
 impl LogEntry for PidLogEntry {
-    fn from_reader(reader: &mut impl io::Read) -> io::Result<(Self, usize)> {
+    fn from_reader(reader: &mut impl io::BufRead) -> io::Result<(Self, usize)> {
         // Start with 0 bytes read
         let mut total_bytes_read = 0;
 

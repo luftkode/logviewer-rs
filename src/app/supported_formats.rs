@@ -6,7 +6,7 @@ use logs::{
 };
 use serde::{Deserialize, Serialize};
 use skytem_logs::{
-    generator::{GeneratorLog, GeneratorLogEntry},
+    generator::GeneratorLog,
     mbed_motor_control::{pid::pidlog::PidLog, status::statuslog::StatusLog},
 };
 use std::{
@@ -59,28 +59,25 @@ impl SupportedFormat {
     /// Attempts to parse a log from raw content.
     ///
     /// This is how content is made available in a browser.
-    fn parse_from_content(mut content: &[u8]) -> io::Result<Self> {
+    fn parse_from_content(content: &[u8]) -> io::Result<Self> {
         let total_bytes = content.len();
         log::debug!("Parsing content of length: {total_bytes}");
-        let log: Self = if PidLog::is_buf_valid(content) {
-            let (log, read_bytes) = PidLog::from_reader(&mut content)?;
+        let log: Self = if let Ok((pidlog, read_bytes)) = PidLog::try_from_buf(content) {
             log::debug!("Read: {read_bytes} bytes");
             (
-                log,
+                pidlog,
                 ParseInfo::new(ParsedBytes(read_bytes), TotalBytes(total_bytes)),
             )
                 .into()
-        } else if StatusLog::is_buf_valid(content) {
-            let (log, read_bytes) = StatusLog::from_reader(&mut content)?;
+        } else if let Ok((statuslog, read_bytes)) = StatusLog::try_from_buf(content) {
             (
-                log,
+                statuslog,
                 ParseInfo::new(ParsedBytes(read_bytes), TotalBytes(read_bytes)),
             )
                 .into()
-        } else if GeneratorLogEntry::is_bytes_valid_generator_log_entry(content) {
-            let (log, read_bytes) = GeneratorLog::from_reader(&mut content)?;
+        } else if let Ok((genlog, read_bytes)) = GeneratorLog::try_from_buf(content) {
             (
-                log,
+                genlog,
                 ParseInfo::new(ParsedBytes(read_bytes), TotalBytes(total_bytes)),
             )
                 .into()

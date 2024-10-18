@@ -4,6 +4,7 @@ use log_if::prelude::*;
 
 pub mod generator;
 pub mod mbed_motor_control;
+pub mod navsys;
 pub mod util;
 
 /// Parse the unique description string from a 128-byte array
@@ -50,7 +51,7 @@ pub fn parse_unique_description(raw_uniq_desc: &[u8]) -> String {
 /// }
 /// ```
 pub fn parse_and_display_log_entries<T: LogEntry>(
-    reader: &mut impl io::Read,
+    reader: &mut impl io::BufRead,
     limit: Option<usize>,
 ) {
     let mut entry_count = 0;

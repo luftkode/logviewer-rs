@@ -1,8 +1,7 @@
 pub mod mipmap;
 
 use egui::Color32;
-use egui_plot::{Line, PlotBounds, PlotPoint, PlotPoints};
-use log_if::prelude::*;
+use egui_plot::{Line, PlotBounds, PlotPoint};
 
 pub mod plots;
 
@@ -10,18 +9,6 @@ pub use plots::{
     plot_data::{PlotData, PlotValues, StoredPlotLabels},
     Plots,
 };
-
-pub fn line_from_log_entry<XF, YF, L: LogEntry>(log: &[L], x_extractor: XF, y_extractor: YF) -> Line
-where
-    XF: Fn(&L) -> f64,
-    YF: Fn(&L) -> f64,
-{
-    let points: PlotPoints = log
-        .iter()
-        .map(|e| [x_extractor(e), y_extractor(e)])
-        .collect();
-    Line::new(points)
-}
 
 /// An instance of a `MipMap` configuration for a given frame
 #[derive(Debug, Clone, Copy)]
