@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.27.0]
+
+### Added
+
+- Support for viewing error logs from NavSys (files named `<basename>_NavSysErr.log`)
+
 ## [0.26.0]
 
 ### Fix
