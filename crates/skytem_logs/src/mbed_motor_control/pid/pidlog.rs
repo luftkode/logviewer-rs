@@ -69,6 +69,7 @@ impl Parseable for PidLog {
         let startup_timestamp = match &header {
             PidLogHeader::V1(h) => h.startup_timestamp(),
             PidLogHeader::V2(h) => h.startup_timestamp(),
+            PidLogHeader::V3(h) => h.startup_timestamp(),
         }
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?
         .and_utc();
@@ -161,6 +162,7 @@ impl GitMetadata for PidLog {
         match &self.header {
             PidLogHeader::V1(h) => h.project_version(),
             PidLogHeader::V2(h) => h.project_version(),
+            PidLogHeader::V3(h) => h.project_version(),
         }
     }
 
@@ -168,6 +170,7 @@ impl GitMetadata for PidLog {
         match &self.header {
             PidLogHeader::V1(h) => h.git_short_sha(),
             PidLogHeader::V2(h) => h.git_short_sha(),
+            PidLogHeader::V3(h) => h.git_short_sha(),
         }
     }
 
@@ -175,6 +178,7 @@ impl GitMetadata for PidLog {
         match &self.header {
             PidLogHeader::V1(h) => h.git_branch(),
             PidLogHeader::V2(h) => h.git_branch(),
+            PidLogHeader::V3(h) => h.git_branch(),
         }
     }
 
@@ -182,6 +186,7 @@ impl GitMetadata for PidLog {
         match &self.header {
             PidLogHeader::V1(h) => h.git_repo_status(),
             PidLogHeader::V2(h) => h.git_repo_status(),
+            PidLogHeader::V3(h) => h.git_repo_status(),
         }
     }
 }
@@ -199,6 +204,7 @@ impl Plotable for PidLog {
         match self.header {
             PidLogHeader::V1(_) => "Mbed PID v1",
             PidLogHeader::V2(_) => "Mbed PID v2",
+            PidLogHeader::V3(_) => "Mbed PID v3",
         }
     }
 
@@ -235,6 +241,10 @@ impl Plotable for PidLog {
             PidLogHeader::V1(_) => (),
             // V2 also has config values
             PidLogHeader::V2(h) => {
+                metadata.push(("Config values".to_owned(), String::new()));
+                metadata.extend_from_slice(&h.mbed_config().field_value_pairs());
+            }
+            PidLogHeader::V3(h) => {
                 metadata.push(("Config values".to_owned(), String::new()));
                 metadata.extend_from_slice(&h.mbed_config().field_value_pairs());
             }

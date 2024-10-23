@@ -128,6 +128,7 @@ impl Parseable for StatusLog {
         let startup_timestamp = match header {
             StatusLogHeader::V1(h) => h.startup_timestamp(),
             StatusLogHeader::V2(h) => h.startup_timestamp(),
+            StatusLogHeader::V3(h) => h.startup_timestamp(),
         }
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?
         .and_utc();
@@ -178,12 +179,14 @@ impl GitMetadata for StatusLog {
         match &self.header {
             StatusLogHeader::V1(h) => h.project_version(),
             StatusLogHeader::V2(h) => h.project_version(),
+            StatusLogHeader::V3(h) => h.project_version(),
         }
     }
     fn git_short_sha(&self) -> Option<String> {
         match &self.header {
             StatusLogHeader::V1(h) => h.git_short_sha(),
             StatusLogHeader::V2(h) => h.git_short_sha(),
+            StatusLogHeader::V3(h) => h.git_short_sha(),
         }
     }
 
@@ -191,6 +194,7 @@ impl GitMetadata for StatusLog {
         match &self.header {
             StatusLogHeader::V1(h) => h.git_branch(),
             StatusLogHeader::V2(h) => h.git_branch(),
+            StatusLogHeader::V3(h) => h.git_branch(),
         }
     }
 
@@ -198,6 +202,7 @@ impl GitMetadata for StatusLog {
         match &self.header {
             StatusLogHeader::V1(h) => h.git_repo_status(),
             StatusLogHeader::V2(h) => h.git_repo_status(),
+            StatusLogHeader::V3(h) => h.git_repo_status(),
         }
     }
 }
@@ -215,6 +220,7 @@ impl Plotable for StatusLog {
         match self.header {
             StatusLogHeader::V1(_) => "Mbed Status v1",
             StatusLogHeader::V2(_) => "Mbed Status v2",
+            StatusLogHeader::V3(_) => "Mbed Status v3",
         }
     }
 
@@ -251,6 +257,10 @@ impl Plotable for StatusLog {
             StatusLogHeader::V1(_) => (),
             // V2 also has config values
             StatusLogHeader::V2(h) => {
+                metadata.push(("Config values".to_owned(), String::new()));
+                metadata.extend_from_slice(&h.mbed_config().field_value_pairs());
+            }
+            StatusLogHeader::V3(h) => {
                 metadata.push(("Config values".to_owned(), String::new()));
                 metadata.extend_from_slice(&h.mbed_config().field_value_pairs());
             }
